@@ -46,7 +46,7 @@ public:
 };
 
 template<typename Key, typename Info>
-void Dictionary::clearPR( Node* node )
+void Dictionary<Key, Info>::clearPR( Node* node )
 {
 	if( node == nullptr )
 		return;
@@ -58,7 +58,7 @@ void Dictionary::clearPR( Node* node )
 }
 
 template<typename Key, typename Info>
-void Dictionary::displayPR( std::ostream& os, Node* node, int indent )
+void Dictionary<Key, Info>::displayPR( std::ostream& os, Node* node, int indent ) const noexcept
 {
 	if( node == nullptr )
 		return;
@@ -69,7 +69,7 @@ void Dictionary::displayPR( std::ostream& os, Node* node, int indent )
 }
 
 template<typename Key, typename Info>
-void Dictionary::copy( Node* src, Node* dest )
+void Dictionary<Key, Info>::copy( Node* src, Node* dest )
 {
 	if( src == nullptr )
 		return;
@@ -80,7 +80,7 @@ void Dictionary::copy( Node* src, Node* dest )
 }
 
 template<typename Key, typename Info>
-Dictionary& Dictionary::operator=( const Dictionary& rhs )
+Dictionary<Key, Info>& Dictionary<Key, Info>::operator=( const Dictionary& rhs )
 {
 	if( this == &rhs )
 		return *this;
@@ -90,7 +90,7 @@ Dictionary& Dictionary::operator=( const Dictionary& rhs )
 }
 
 template<typename Key, typename Info>
-Info Dictionary::get( const Key& elem )
+Info Dictionary<Key, Info>::get( const Key& elem ) const
 {
 	Node* current = root;
 	while( current != nullptr )
@@ -106,7 +106,7 @@ Info Dictionary::get( const Key& elem )
 }
 
 template<typename Key, typename Info>
-bool Dictionary::compare( Node* rhs, Node* lhs )
+bool Dictionary<Key, Info>::compare( Node* rhs, Node* lhs ) const noexcept
 {
 	if( rhs == lhs )
 		return true;
@@ -121,7 +121,7 @@ bool Dictionary::compare( Node* rhs, Node* lhs )
 }
 
 template<typename Key, typename Info>
-void Dictionary::add( Node* dest, const Key& nKey, const Info nInfo, bool growth )
+void Dictionary<Key, Info>::add( Node* dest, const Key& nKey, const Info nInfo, bool growth )
 {
 	if( dest == nullptr )
 	{
@@ -149,7 +149,7 @@ void Dictionary::add( Node* dest, const Key& nKey, const Info nInfo, bool growth
 		if ( dest->balance == 1 )
 		{
 			//TODO: BALANCING, DUŻO
-			Node *temp = dest->right;
+			Node* temp = dest->right;
 			if( temp->balance == 0 )
 			{
 				growth = true;
@@ -192,7 +192,7 @@ void Dictionary::add( Node* dest, const Key& nKey, const Info nInfo, bool growth
 		if ( dest->balance == -1 )
 		{
 			//TODO: BALANCING, DUŻO
-			Node *temp = dest->right;
+			Node* temp = dest->right;
 			if( temp->balance == 0 )
 			{
 				
