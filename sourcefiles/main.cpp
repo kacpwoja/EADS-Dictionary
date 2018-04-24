@@ -136,11 +136,14 @@ int main()
 
 	{//balancing
 		Dictionary<int, int> test;
-		for( int i = 1; i < 50; i+= rand()%3 + 1 )
+		for( int i = 1; i < 50; i+= 2 )
 			test.insert( i, i );
 
-		std::cerr << "Testing balancing: displaying tree.\n";
+		test.remove( 23 );
+		test.remove( 19 );
+		test.remove( 17 );
 
+		std::cerr << "Testing balancing: displaying tree.\n";
 		test.display();
 	}
 
