@@ -20,63 +20,81 @@ class Dictionary
 	};
 	
 	Node* root;
-	
-	void copy( Node* src, Node* dest ); //
-	void displayPR( std::ostream& os, Node* node, int indent = 0 ) const noexcept; //
-	void clearPR( Node* node ); //
+
+	Node* copy( Node* src ); //
+	void display( std::ostream& os, Node* node, int indent = 0 ) const noexcept; //
+	void clear( Node*& node ); //
 	bool compare( Node* rhs, Node* lhs ) const noexcept; //
-	void add( Node* dest, const Key& nKey, const Info& nInfo, bool growth );
+	bool insert( Node*& dest, const Key& nKey, const Info& nInfo ); //
+	void lRotate( Node*& dest ); //
+	void rRotate( Node*& dest ); //
+	bool remove( const Key& elem, Node*& dest );
+	int height( Node* dest ) const noexcept;
 public:
+	class DictionaryError final: std::invalid_argument
+	{
+	public:
+		using std::invalid_argument::invalid_argument;
+		using std::invalid_argument::what;
+	};
+
 	Dictionary(): root( nullptr ) {}; //
-	Dictionary( const Dictionary& src ): root( nullptr ) { return *this = src; }; //
+	Dictionary( const Dictionary& src ): root( nullptr ) { *this = src; }; //
 	~Dictionary() { clear(); }; //
 	Dictionary& operator=( const Dictionary& rhs ); //
 	
-	void insert( const Key& nKey, const Info& nInfo ) { add( root, nKey, nInfo, false ); };
-	void remove( const Key& elem );
+	void insert( const Key& nKey, const Info& nInfo ) { insert( root, nKey, nInfo ); }; //
+	void remove( const Key& elem ) { remove( elem, root ); }; //
 	
 	Info get( const Key& elem ) const; //
 	
-	void clear() { clearPR( root ); }; //
+	void clear() { clear( root ); }; //
+	bool empty() const noexcept { return root == nullptr; };
+	int height() const noexcept { return height( root ); };
 	
-	void display( std::ostream& os = std::cout ) const noexcept { displayPR( os, root, 0 ); }; //
+	void display( std::ostream& os = std::cout ) const noexcept { display( os, root ); }; //
 	
 	bool operator==( const Dictionary& rhs ) const noexcept { return compare( root, rhs.root ); }; //
 	bool operator!=( const Dictionary& rhs ) const noexcept { return !( *this == rhs ); }; //
 };
 
 template<typename Key, typename Info>
-void Dictionary<Key, Info>::clearPR( Node* node )
+void Dictionary<Key, Info>::clear( Node*& node )
 {
 	if( node == nullptr )
 		return;
 	
-	clearPR( node->left );
-	clearPR( node->right );
+	clear( node->left );
+	clear( node->right );
 	delete node;
 	node = nullptr;
 }
 
 template<typename Key, typename Info>
-void Dictionary<Key, Info>::displayPR( std::ostream& os, Node* node, int indent ) const noexcept
+void Dictionary<Key, Info>::display( std::ostream& os, Node* node, int indent ) const noexcept
 {
 	if( node == nullptr )
 		return;
 	
-	displayPR( os, node->right, indent + 8 );
+	display( os, node->right, indent + 8 );
 	os << std::setw( indent ) << " " << node->key << std::endl;
-	displayPR( os, node->left, indent + 8 );
+	display( os, node->left, indent + 8 );
 }
 
 template<typename Key, typename Info>
-void Dictionary<Key, Info>::copy( Node* src, Node* dest )
+typename Dictionary<Key, Info>::Node* Dictionary<Key, Info>::copy( Node* src )
 {
-	if( src == nullptr )
-		return;
-		
-	dest = new Node( src->key, src->info );
-	copy( src->left, dest->left );
-	copy( src->right, dest->right );
+	Node* temp = nullptr;
+	
+	if( src != nullptr )
+	{
+		temp = new Node( src->key, src->info );
+		temp->balance = src->balance;
+		temp->left = copy( src->left );
+		temp->right = copy( src->right );
+	}
+
+	return temp;
 }
 
 template<typename Key, typename Info>
@@ -86,7 +104,8 @@ Dictionary<Key, Info>& Dictionary<Key, Info>::operator=( const Dictionary& rhs )
 		return *this;
 		
 	clear();
-	copy( rhs.root, root );
+	root = copy( rhs.root );
+	return *this;
 }
 
 template<typename Key, typename Info>
@@ -96,13 +115,13 @@ Info Dictionary<Key, Info>::get( const Key& elem ) const
 	while( current != nullptr )
 	{
 		if( current->key == elem )
-			return info;
+			return current->info;
 		if( current->key < elem )
 			current = current->right;
 		else if( current->key > elem )
 			current = current->left;
 	}
-	throw std::invalid_argument( "Key does not exist!" );
+	throw DictionaryError( "Error while accessing element: Key does not exist!" );
 }
 
 template<typename Key, typename Info>
@@ -121,96 +140,319 @@ bool Dictionary<Key, Info>::compare( Node* rhs, Node* lhs ) const noexcept
 }
 
 template<typename Key, typename Info>
-void Dictionary<Key, Info>::add( Node* dest, const Key& nKey, const Info nInfo, bool growth )
+bool Dictionary<Key, Info>::insert( Node*& dest, const Key & nKey, const Info & nInfo )
 {
 	if( dest == nullptr )
 	{
 		dest = new Node( nKey, nInfo );
-		growth = true;
-		return;
+		dest->balance = 0;
+		return true;
 	}
 	
 	if( dest->key == nKey )
 	{
-		throw std::invalid_argument( "Key already exists!" );
+		throw DictionaryError( "Error adding an element: Key already exists!" );
 	}
 	
 	if( dest->key < nKey )
 	{
-		add( dest->right, nKey, nInfo, growth );
-		if ( != growth )
-			return;
+		if ( !insert( dest->right, nKey, nInfo ) )
+			return false;
 		if ( dest->balance == -1 )
 		{
 			dest->balance = 0;
-			growth = false;
-			return;
+			return false;
 		}
 		if ( dest->balance == 1 )
 		{
-			//TODO: BALANCING, DUŻO
 			Node* temp = dest->right;
 			if( temp->balance == 0 )
 			{
-				growth = true;
-				return;
+				throw DictionaryError( "Unexpected state of Dictionary encountered" );
 			}
 			if( temp->balance == 1 )
 			{
-				dest->balance = -1;
-				temp->balance = -1;
-				dest->right = temp->left;
-				temp->left = dest;
-				dest = temp;
-				growth = true;
-				return;
+				dest->balance = 0;
+				temp->balance = 0;
+				lRotate( dest );
+				return false;
 			}
 			if( temp->balance == -1 )
 			{
-				
+				Node* temp2 = temp->left;
+				if( temp2->balance == -1 )
+				{
+					dest->balance = 0;
+					temp->balance = 1;
+				}
+				else if( temp2->balance == 0 )
+				{
+					dest->balance = 0;
+					temp->balance = 0;
+				}
+				else if( temp2->balance == 1 )
+				{
+					dest->balance = -1;
+					temp->balance = 0;
+				}
+				temp2->balance = 0;
+				rRotate( temp );
+				dest->right = temp;
+				lRotate( dest );
+				return false;
 			}
 		}
 		if ( dest->balance == 0 )
 		{
 			dest->balance = 1;
-			growth = true;
-			return;
+			return true;
 		}
 	}
 	
 	if( dest->key > nKey )
 	{
-		add( dest->left, nKey, nInfo, growth );
-		if ( != growth )
-			return;
+		if ( !insert( dest->left, nKey, nInfo ) )
+			return false;
 		if ( dest->balance == 1 )
 		{
 			dest->balance = 0;
-			growth = false;
-			return;
+			return false;
 		}
 		if ( dest->balance == -1 )
 		{
-			//TODO: BALANCING, DUŻO
-			Node* temp = dest->right;
+			Node* temp = dest->left;
 			if( temp->balance == 0 )
 			{
-				
+				throw DictionaryError( "Unexpected state of Dictionary encountered" );
 			}
 			if( temp->balance == 1 )
 			{
-				
+				Node* temp2 = temp->right;
+				if( temp2->balance == -1 )
+				{
+					dest->balance = 1;
+					temp->balance = 0;
+				}
+				else if( temp2->balance == 0 )
+				{
+					dest->balance = 0;
+					temp->balance = 0;
+				}
+				else if( temp2->balance == 1 )
+				{
+					dest->balance = 0;
+					temp->balance = -1;
+				}
+				temp2->balance = 0;
+				lRotate( temp );
+				dest->left = temp;
+				rRotate( root );
+				return false;
 			}
 			if( temp->balance == -1 )
 			{
-				
+				dest->balance = 0;
+				temp->balance = 0;
+				rRotate( dest );
+				return false;
 			}
 		}
 		if ( dest->balance == 0 )
 		{
 			dest->balance = -1;
-			growth = true;
-			return;
+			return true;
 		}
 	}
+}
+
+template<typename Key, typename Info>
+void Dictionary<Key, Info>::lRotate( Node*& dest )
+{
+	if( dest == nullptr )
+		throw DictionaryError( "Unexpected state of Dictionary encountered" );
+
+	Node* temp = dest->right;
+	if( temp == nullptr )
+		throw DictionaryError( "Unexpected state of Dictionary encountered" );
+
+	dest->right = temp->left;
+	temp->left = dest;
+	dest = temp;
+}
+
+template<typename Key, typename Info>
+void Dictionary<Key, Info>::rRotate( Node*& dest )
+{
+	if( dest == nullptr )
+		throw DictionaryError( "Unexpected state of Dictionary encountered" );
+
+	Node* temp = dest->left;
+	if( temp == nullptr )
+		throw DictionaryError( "Unexpected state of Dictionary encountered" );
+
+	dest->left = temp->right;
+	temp->right = dest;
+	dest = temp;
+}
+
+template<typename Key, typename Info>
+bool Dictionary<Key, Info>::remove( const Key& elem, Node*& dest )
+{
+	if( dest == nullptr )
+		throw DictionaryError( "Error while removing: key doesn't exist!" );
+	if( elem > dest->key )
+	{
+		//balance
+		if( remove( elem, dest->right ) )
+		{
+			if( dest->balance == 0 )
+			{
+				dest->balance = -1;
+				return false;
+			}
+			if( dest->balance == 1 )
+			{
+				dest->balance = 0;
+				return true;
+			}
+			if( dest->balance == -1 )
+			{
+				Node* temp = dest->left;
+				if( temp->balance == 0 )
+				{
+					temp->balance = 1;
+					rRotate( dest );
+					return false;
+				}
+				if( temp->balance == -1 )
+				{
+					dest->balance = 0;
+					temp->balance = 0;
+					lRotate( dest );
+					return true;
+				}
+				if( temp->balance == 1 )
+				{
+					Node* temp2 = temp->right;
+					if( temp2->balance == 0 )
+					{
+						temp->balance = 0;
+					}
+					else if( temp2->balance == 1 )
+					{
+						temp2->balance = 0;
+						temp->balance = -1;
+					}
+					else if( temp->balance == -1 )
+					{
+						temp->balance = 0;
+						dest->balance = 0;
+					}
+					rRotate( temp );
+					dest->left = temp;
+					lRotate( dest );
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	if( elem < dest->key )
+	{
+		//balance
+		if( remove( elem, dest->left ) )
+		{
+			if( dest->balance == 0 )
+			{
+				dest->balance = 1;
+				return false;
+			}
+			if( dest->balance == -1 )
+			{
+				dest->balance = 0;
+				return true;
+			}
+			if( dest->balance == 1 )
+			{
+				Node* temp = dest->right;
+				if( temp->balance == 0 )
+				{
+					temp->balance = 1;
+					lRotate( dest );
+					return false;
+				}
+				if( temp->balance == 1 )
+				{
+					dest->balance = 0;
+					temp->balance = 0;
+					rRotate( dest );
+					return true;
+				}
+				if( temp->balance == -1 )
+				{
+					Node* temp2 = temp->left;
+					if( temp2->balance == 0 )
+					{
+						temp->balance = 0;
+					}
+					else if( temp2->balance == 1 )
+					{
+						dest->balance = 0;
+						temp->balance = 0;
+						temp2->balance = -1;
+					}
+					else if( temp->balance == -1 )
+					{
+						temp->balance = 1;
+						temp2->balance = 0;
+					}
+					lRotate( temp );
+					dest->left = temp;
+					rRotate( dest );
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	if( dest->right == nullptr )
+	{
+		Node *temp = dest;
+		dest = dest->left;
+		delete temp;
+		return true;
+	}
+	if( dest->left == nullptr )
+	{
+		Node* temp = dest;
+		dest = dest->right;
+		delete temp;
+		return true;
+	}
+	Node* curr = dest->left;
+	Node* prev = nullptr;
+	while( curr->right != nullptr )
+	{
+		prev = curr;
+		curr = curr->right;
+	}
+	dest->key = curr->key;
+	dest->info = curr->info;
+
+	if( prev == nullptr )
+		dest->left = curr->left;
+	else
+		prev->right = curr->left;
+	delete curr;
+	return true;
+}
+
+template<typename Key, typename Info>
+int Dictionary<Key, Info>::height( Node * dest ) const noexcept
+{
+	if( dest == nullptr )
+		return 0;
+
+	return 1 + height( dest->right ) + height( dest->left );
 }
